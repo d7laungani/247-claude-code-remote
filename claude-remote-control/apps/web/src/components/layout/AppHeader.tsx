@@ -13,6 +13,7 @@ import {
   Maximize2,
   Minimize2,
   Loader2,
+  Columns2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { spring } from '@/lib/animations';
@@ -33,6 +34,10 @@ interface AppHeaderProps {
   onToggleFullscreen?: () => void;
   isFullscreen?: boolean;
   onOpenNotificationSettings?: () => void;
+  /** Number of panes currently open in multi-terminal mode */
+  multiPaneCount?: number;
+  /** Toggle split view layout */
+  onToggleSplitView?: () => void;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -245,6 +250,8 @@ export function AppHeader({
   onToggleFullscreen,
   isFullscreen,
   onOpenNotificationSettings,
+  multiPaneCount,
+  onToggleSplitView,
 }: AppHeaderProps) {
   return (
     <header
@@ -304,6 +311,14 @@ export function AppHeader({
               badge={2}
               onClick={onOpenNotificationSettings}
             />
+            {onToggleSplitView && (
+              <IconButton
+                icon={<Columns2 className="h-5 w-5" />}
+                label="Split View"
+                onClick={onToggleSplitView}
+                badge={multiPaneCount && multiPaneCount > 1 ? multiPaneCount : undefined}
+              />
+            )}
             {onToggleFullscreen && (
               <IconButton
                 icon={

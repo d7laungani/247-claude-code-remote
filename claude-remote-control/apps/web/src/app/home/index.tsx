@@ -22,7 +22,9 @@ import { useInAppNotifications } from '@/hooks/useInAppNotifications';
 import { useNotificationPreferences } from '@/hooks/useNotificationPreferences';
 import { useSoundNotifications } from '@/hooks/useSoundNotifications';
 import { useSessionActions } from '@/hooks/useSessionActions';
+import { useMultiTerminal } from '@/hooks/useMultiTerminal';
 import { NotificationSettingsPanel } from '@/components/NotificationSettingsPanel';
+import { MultiTerminalContainer } from '@/components/multi-terminal';
 import { useSessionPolling, type SessionWithMachine } from '@/contexts/SessionPollingContext';
 // New layout components
 import { AppShell } from '@/components/layout';
@@ -98,6 +100,9 @@ export function HomeContent() {
 
   // Shared session actions hook (used by both desktop SessionListPanel and mobile MobileStatusStrip)
   const { killSession, archiveSession, acknowledgeSession } = useSessionActions(agentConnections);
+
+  // Multi-terminal pane management
+  const multiTerminal = useMultiTerminal();
 
   // Get session count per agent for the header
   const { sessionsByMachine, isWsConnected, refreshMachine, setOnNeedsAttention } =
@@ -230,14 +235,55 @@ export function HomeContent() {
 
   // Handler pour sélection depuis SessionListPanel
   const handleSelectSessionFromList = useCallback(
-    (item: SessionListItem) => {
+    (item: SessionListItem, openInNewPane?: boolean) => {
       // Auto-acknowledge if needs_attention (replicate HomeSidebar behavior)
       if (item.status === 'needs_attention' && item.machineId) {
         acknowledgeSession(item.machineId, item.name);
       }
+
+      const session = {
+        machineId: item.machineId!,
+        sessionName: item.name,
+        project: item.project,
+      };
+
+      if (openInNewPane) {
+        // Cmd+click: toggle session in/out of pane group
+        if (multiTerminal.isSessionOpen(item.machineId!, item.name)) {
+          // Already open — remove it from the pane group
+          const pane = multiTerminal.openPanes.find(
+            (p) => p.session.machineId === item.machineId && p.session.sessionName === item.name
+          );
+          if (pane) {
+            multiTerminal.closePane(pane.id);
+            // If no panes left, clear multi-pane state
+            if (multiTerminal.openPanes.length <= 1) {
+              return; // Don't update selectedSession, closing handled it
+            }
+          }
+          return;
+        }
+        // Not open yet — add current session first if needed
+        if (!multiTerminal.isMultiPaneActive && selectedSession) {
+          const currentConn = agentConnections.find((c) => c.id === selectedSession.machineId);
+          if (currentConn) {
+            multiTerminal.openInPane(selectedSession, currentConn.url);
+          }
+        }
+        const connection = agentConnections.find((c) => c.id === item.machineId);
+        const agentUrl = connection?.url || '';
+        multiTerminal.openInPane(session, agentUrl);
+      } else if (multiTerminal.isMultiPaneActive) {
+        // Regular click in multi-pane mode: open in pane (or focus existing)
+        const connection = agentConnections.find((c) => c.id === item.machineId);
+        const agentUrl = connection?.url || '';
+        multiTerminal.openInPane(session, agentUrl);
+      }
+
+      // Always update selectedSession for URL/compat
       handleSelectSession(item.machineId!, item.name, item.project);
     },
-    [handleSelectSession, acknowledgeSession]
+    [handleSelectSession, acknowledgeSession, multiTerminal, agentConnections, allSessions]
   );
 
   // Handler pour kill depuis SessionListPanel (uses shared hook)
@@ -274,6 +320,36 @@ export function HomeContent() {
     );
     sessionCountsMap.set(conn.id, machineData?.sessions?.length ?? 0);
   });
+
+  // Compute set of session IDs currently open in multi-terminal panes
+  const openPaneSessionIds = useMemo(
+    () =>
+      new Set(
+        multiTerminal.openPanes.map(
+          (p) => `${p.session.machineId}-${p.session.sessionName}`
+        )
+      ),
+    [multiTerminal.openPanes]
+  );
+
+  // Keyboard shortcuts for pane switching (Cmd+1/2/3/4)
+  useEffect(() => {
+    if (isMobile || multiTerminal.openPanes.length <= 1) return;
+
+    const handlePaneSwitch = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey)) return;
+      const num = parseInt(e.key);
+      if (num >= 1 && num <= 4 && num <= multiTerminal.openPanes.length) {
+        e.preventDefault();
+        const pane = multiTerminal.openPanes[num - 1];
+        multiTerminal.setActivePaneId(pane.id);
+        handleSelectSession(pane.session.machineId, pane.session.sessionName, pane.session.project);
+      }
+    };
+
+    window.addEventListener('keydown', handlePaneSwitch);
+    return () => window.removeEventListener('keydown', handlePaneSwitch);
+  }, [isMobile, multiTerminal.openPanes, multiTerminal.setActivePaneId, handleSelectSession]);
 
   // Pull-to-refresh for mobile PWA
   const { pullDistance, isRefreshing, isPulling, isThresholdReached, handlers } = usePullToRefresh({
@@ -338,7 +414,13 @@ export function HomeContent() {
         open={newSessionOpen}
         onOpenChange={setNewSessionOpen}
         machines={machines}
-        onStartSession={handleStartSession}
+        onStartSession={(machineId: string, project: string, environmentId?: string) => {
+          // Close multi-pane mode so the new session renders in single SessionView
+          if (multiTerminal.openPanes.length > 0) {
+            multiTerminal.closeAllPanes();
+          }
+          handleStartSession(machineId, project, environmentId);
+        }}
       />
 
       {/* Guide Slide-Over Panel */}
@@ -398,15 +480,66 @@ export function HomeContent() {
           onNewSession={() => setNewSessionOpen(true)}
           onKillSession={handleKillSessionFromList}
           onArchiveSession={handleArchiveSessionFromList}
+          openPaneSessionIds={openPaneSessionIds}
           // Header props
           currentMachineName={currentMachine?.name}
           currentProjectName={selectedSession?.project}
           isFullscreen={isFullscreen}
           onToggleFullscreen={() => setIsFullscreen((prev) => !prev)}
           onOpenNotificationSettings={() => setNotificationSettingsOpen(true)}
+          multiPaneCount={multiTerminal.openPanes.length}
+          onToggleSplitView={() => {
+            if (multiTerminal.openPanes.length > 1) {
+              // Cycle through layouts
+              const current = multiTerminal.layout?.type || 'single';
+              if (current === 'split-horizontal') {
+                multiTerminal.changeLayout('split-vertical');
+              } else if (current === 'split-vertical') {
+                multiTerminal.changeLayout('grid');
+              } else if (current === 'grid') {
+                multiTerminal.changeLayout('split-horizontal');
+              } else {
+                multiTerminal.changeLayout('split-horizontal');
+              }
+            } else if (selectedSession) {
+              // Open the current session in multi-pane mode
+              const connection = agentConnections.find((c) => c.id === selectedSession.machineId);
+              const agentUrl = connection?.url || '';
+              multiTerminal.openInPane(selectedSession, agentUrl);
+            }
+          }}
         >
           {/* Main content */}
-          {selectedSession ? (
+          {multiTerminal.openPanes.length > 0 ? (
+            <MultiTerminalContainer
+              openPanes={multiTerminal.openPanes}
+              activePaneId={multiTerminal.activePaneId}
+              layout={multiTerminal.layout}
+              onFocusPane={(paneId) => {
+                multiTerminal.setActivePaneId(paneId);
+                // Sync selectedSession with active pane
+                const pane = multiTerminal.openPanes.find((p) => p.id === paneId);
+                if (pane) {
+                  handleSelectSession(
+                    pane.session.machineId,
+                    pane.session.sessionName,
+                    pane.session.project
+                  );
+                }
+              }}
+              onClosePane={(paneId) => {
+                multiTerminal.closePane(paneId);
+                // If no panes left, clear selected session
+                if (multiTerminal.openPanes.length <= 1) {
+                  setSelectedSession(null);
+                  clearSessionFromUrl();
+                }
+              }}
+              onResizePanes={multiTerminal.resizePanes}
+              onChangeLayout={multiTerminal.changeLayout}
+              onSessionCreated={handleSessionCreated}
+            />
+          ) : selectedSession ? (
             <SessionView
               key={`${selectedSession.machineId}-${selectedSession.project}-${selectedSession.sessionName.endsWith('--new') ? 'new' : selectedSession.sessionName}`}
               sessionName={selectedSession.sessionName}

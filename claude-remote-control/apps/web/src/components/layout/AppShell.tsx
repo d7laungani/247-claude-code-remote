@@ -28,16 +28,22 @@ export interface AppShellProps {
   // Session list props
   sessions?: SessionListItem[];
   selectedSessionId?: string | null;
-  onSelectSession?: (session: SessionListItem) => void;
+  onSelectSession?: (session: SessionListItem, openInNewPane?: boolean) => void;
   onNewSession?: () => void;
   onKillSession?: (session: SessionListItem) => void;
   onArchiveSession?: (session: SessionListItem) => void;
+  /** Session IDs currently open in multi-terminal panes */
+  openPaneSessionIds?: Set<string>;
   // Header props
   currentMachineName?: string;
   currentProjectName?: string;
   onToggleFullscreen?: () => void;
   isFullscreen?: boolean;
   onOpenNotificationSettings?: () => void;
+  /** Number of multi-terminal panes open */
+  multiPaneCount?: number;
+  /** Toggle split view from header */
+  onToggleSplitView?: () => void;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -80,12 +86,15 @@ export function AppShell({
   onNewSession,
   onKillSession,
   onArchiveSession,
+  openPaneSessionIds,
   // Header props
   currentMachineName,
   currentProjectName,
   onToggleFullscreen,
   isFullscreen = false,
   onOpenNotificationSettings,
+  multiPaneCount,
+  onToggleSplitView,
 }: AppShellProps) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
@@ -106,6 +115,8 @@ export function AppShell({
           onToggleFullscreen={onToggleFullscreen}
           isFullscreen={isFullscreen}
           onOpenNotificationSettings={onOpenNotificationSettings}
+          multiPaneCount={multiPaneCount}
+          onToggleSplitView={onToggleSplitView}
         />
         <main className="flex flex-1 flex-col overflow-hidden">{children}</main>
       </div>
@@ -166,6 +177,7 @@ export function AppShell({
             onNewSession={onNewSession}
             onKillSession={onKillSession}
             onArchiveSession={onArchiveSession}
+            openPaneSessionIds={openPaneSessionIds}
           />
         </div>
 

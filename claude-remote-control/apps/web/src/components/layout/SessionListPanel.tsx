@@ -33,10 +33,12 @@ interface DateGroup {
 interface SessionListPanelProps {
   sessions?: SessionListItem[];
   selectedSessionId?: string | null;
-  onSelectSession?: (session: SessionListItem) => void;
+  onSelectSession?: (session: SessionListItem, openInNewPane?: boolean) => void;
   onNewSession?: () => void;
   onKillSession?: (session: SessionListItem) => void;
   onArchiveSession?: (session: SessionListItem) => void;
+  /** Set of session IDs currently open in panes */
+  openPaneSessionIds?: Set<string>;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -127,12 +129,13 @@ function SearchInput({ value, onChange, placeholder = 'Search...' }: SearchInput
 interface SessionCardProps {
   session: SessionListItem;
   selected?: boolean;
-  onClick?: () => void;
+  isOpenInPane?: boolean;
+  onClick?: (e: React.MouseEvent) => void;
   onKill?: () => void;
   onArchive?: () => void;
 }
 
-function SessionCard({ session, selected, onClick, onKill, onArchive }: SessionCardProps) {
+function SessionCard({ session, selected, isOpenInPane, onClick, onKill, onArchive }: SessionCardProps) {
   const [showActions, setShowActions] = useState(false);
 
   return (
@@ -162,6 +165,11 @@ function SessionCard({ session, selected, onClick, onKill, onArchive }: SessionC
           {/* Name and badge */}
           <div className="mb-0.5 flex items-center gap-2">
             <span className="truncate font-medium text-white/90">{session.name}</span>
+            {isOpenInPane && (
+              <span className="flex-shrink-0 rounded bg-orange-500/15 px-1 py-0.5 text-[10px] font-medium text-orange-400">
+                OPEN
+              </span>
+            )}
             {session.status === 'needs_attention' && (
               <StatusBadge status={session.status} size="sm" showDot={false} />
             )}
@@ -230,12 +238,13 @@ function SessionCard({ session, selected, onClick, onKill, onArchive }: SessionC
 interface DateGroupProps {
   group: DateGroup;
   selectedId?: string | null;
-  onSelect?: (session: SessionListItem) => void;
+  onSelect?: (session: SessionListItem, openInNewPane?: boolean) => void;
   onKill?: (session: SessionListItem) => void;
   onArchive?: (session: SessionListItem) => void;
+  openPaneSessionIds?: Set<string>;
 }
 
-function DateGroupSection({ group, selectedId, onSelect, onKill, onArchive }: DateGroupProps) {
+function DateGroupSection({ group, selectedId, onSelect, onKill, onArchive, openPaneSessionIds }: DateGroupProps) {
   return (
     <div className="mb-2">
       {/* Date header */}
@@ -253,7 +262,11 @@ function DateGroupSection({ group, selectedId, onSelect, onKill, onArchive }: Da
             key={session.id}
             session={session}
             selected={selectedId === session.id}
-            onClick={() => onSelect?.(session)}
+            isOpenInPane={openPaneSessionIds?.has(session.id)}
+            onClick={(e) => {
+              const openInNewPane = e.metaKey || e.ctrlKey;
+              onSelect?.(session, openInNewPane);
+            }}
             onKill={onKill ? () => onKill(session) : undefined}
             onArchive={onArchive ? () => onArchive(session) : undefined}
           />
@@ -274,6 +287,7 @@ export function SessionListPanel({
   onNewSession,
   onKillSession,
   onArchiveSession,
+  openPaneSessionIds,
 }: SessionListPanelProps) {
   const [search, setSearch] = useState('');
 
@@ -324,6 +338,7 @@ export function SessionListPanel({
               onSelect={onSelectSession}
               onKill={onKillSession}
               onArchive={onArchiveSession}
+              openPaneSessionIds={openPaneSessionIds}
             />
           ))
         )}

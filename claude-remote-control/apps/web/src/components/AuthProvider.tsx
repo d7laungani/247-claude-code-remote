@@ -10,7 +10,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   return (
     <NeonAuthUIProvider
       authClient={authClient}
-      social={{ providers: ['github'] }}
+      social={{ providers: ['google'] }}
       navigate={(path: string) => router.push(path)}
       redirectTo="/"
       emailOTP
