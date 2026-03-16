@@ -213,6 +213,9 @@ importers:
       web-push:
         specifier: ^3.6.7
         version: 3.6.7
+      xterm-zerolag-input:
+        specifier: ^0.1.4
+        version: 0.1.4
     devDependencies:
       '@testing-library/dom':
         specifier: ^10.4.1
@@ -4446,6 +4449,7 @@ packages:
   prebuild-install@7.1.3:
     resolution: {integrity: sha512-8Mf2cbV7x1cXPUILADGI3wuhfqWvtiLA1iclTDbFRZkgRQS0NqsPZphna9V+HyTEadheuPmjaJMsbzKQFOzLug==}
     engines: {node: '>=10'}
+    deprecated: No longer maintained. Please contact the author of the relevant native addon; alternatives are available.
     hasBin: true
 
   prelude-ls@1.2.1:
@@ -5434,6 +5438,9 @@ packages:
   xtend@4.0.2:
     resolution: {integrity: sha512-LKYU1iAXJXUgAXn9URjiu+MWhyUXHsvfp7mcuYm9dSUKK0/CjtrUwFAxD82/mCWbtLsGjFIad0wIsod4zrTAEQ==}
     engines: {node: '>=0.4'}
+
+  xterm-zerolag-input@0.1.4:
+    resolution: {integrity: sha512-ZXUE3wydfEoz+ITGS92jbGE+6ZNpuDeeV76U1Ph53CzDS+jmxtR6duTXm/VCmiJW3YFF62ou2Cpt/RHixl5VkQ==}
 
   yaml@2.8.2:
     resolution: {integrity: sha512-mplynKqc1C2hTVYxd0PU2xQAc22TI1vShAYGksCCfxbn/dFwnHTNi1bvYsBTkhdUNtGIf5xNOg938rrSSYvS9A==}
@@ -10645,6 +10652,8 @@ snapshots:
   ws@8.19.0: {}
 
   xtend@4.0.2: {}
+
+  xterm-zerolag-input@0.1.4: {}
 
   yaml@2.8.2: {}
 

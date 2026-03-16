@@ -6,6 +6,7 @@ import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import { SearchAddon } from '@xterm/addon-search';
 import { CanvasAddon } from '@xterm/addon-canvas';
+import { ZerolagInputAddon } from 'xterm-zerolag-input';
 import {
   TERMINAL_THEME,
   WS_RECONNECT_BASE_DELAY,
@@ -69,6 +70,9 @@ export function useTerminalConnection({
 
   // Track if we've acknowledged this session (reset needs_attention on first input)
   const hasAcknowledgedRef = useRef<boolean>(false);
+
+  // Zero-lag local echo overlay
+  const zerolagRef = useRef<ZerolagInputAddon | null>(null);
 
   const scrollToBottom = useCallback(() => {
     xtermRef.current?.scrollToBottom();
@@ -190,6 +194,13 @@ export function useTerminalConnection({
 
       term.loadAddon(new CanvasAddon());
       fitAddon.fit();
+
+      // Zero-lag local echo: instant keystroke feedback overlay
+      const zerolag = new ZerolagInputAddon({
+        prompt: { type: 'character', char: '\u276f', offset: 2 }, // ❯ prompt
+      });
+      term.loadAddon(zerolag);
+      zerolagRef.current = zerolag;
 
       xtermRef.current = term;
       fitAddonRef.current = fitAddon;
@@ -513,21 +524,69 @@ export function useTerminalConnection({
         currentTerm.write('\r\n\x1b[31m* Connection error\x1b[0m\r\n');
       };
 
-      currentTerm.onData((data) => {
-        if (isPastingRef.current) return;
-        // Use wsRef.current to get the active WebSocket (may have been reconnected)
+      // Helper to send input to PTY via WebSocket
+      const sendToPty = (data: string) => {
         const activeWs = wsRef.current;
         if (activeWs?.readyState === WebSocket.OPEN) {
-          lastActivityRef.current = Date.now(); // Track activity for adaptive heartbeat
+          lastActivityRef.current = Date.now();
           activeWs.send(JSON.stringify({ type: 'input', data }));
 
-          // Acknowledge session on first input (reset needs_attention)
           if (!hasAcknowledgedRef.current && sessionName && agentUrl) {
             hasAcknowledgedRef.current = true;
             fetch(`${agentUrl}/api/sessions/${sessionName}/acknowledge`, {
               method: 'POST',
             }).catch(console.error);
           }
+        }
+      };
+
+      currentTerm.onData((data) => {
+        if (isPastingRef.current) return;
+        const zl = zerolagRef.current;
+
+        if (zl) {
+          // Enter: flush pending text + send
+          if (/^[\r\n]+$/.test(data)) {
+            const text = zl.pendingText;
+            zl.clear();
+            zl.suppressBufferDetection();
+            sendToPty(text + data);
+            return;
+          }
+          // Backspace
+          if (data === '\x7f') {
+            const source = zl.removeChar();
+            if (source === 'flushed') sendToPty(data);
+            return;
+          }
+          // Paste (multi-char printable)
+          if (data.length > 1 && data.charCodeAt(0) >= 32) {
+            zl.appendText(data);
+            return;
+          }
+          // Control chars (Ctrl+C, Tab, etc.)
+          if (data.charCodeAt(0) < 32) {
+            const text = zl.pendingText;
+            zl.clear();
+            zl.suppressBufferDetection();
+            sendToPty(text + data);
+            return;
+          }
+          // Single printable char
+          if (data.length === 1 && data.charCodeAt(0) >= 32) {
+            zl.addChar(data);
+            return;
+          }
+        }
+
+        // Fallback: send directly
+        sendToPty(data);
+      });
+
+      // Re-render overlay after terminal output (Ink-style TUI redraws)
+      currentTerm.onWriteParsed(() => {
+        if (zerolagRef.current?.hasPending) {
+          zerolagRef.current.rerender();
         }
       });
 
@@ -683,6 +742,7 @@ export function useTerminalConnection({
       if (xtermRef.current === term) xtermRef.current = null;
       if (fitAddonRef.current) fitAddonRef.current = null;
       if (searchAddonRef.current) searchAddonRef.current = null;
+      zerolagRef.current = null;
     };
     // Note: onSessionCreated, onCopySuccess, and terminalRef are intentionally excluded
     // from deps - they are refs/callbacks that shouldn't cause reconnection
