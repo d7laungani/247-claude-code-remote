@@ -371,7 +371,24 @@
       "Bash(git -C /Users/stan/Dev/BrainStorming/claude-remote-control checkout:*)",
       "Bash(git -C /Users/stan/Dev/BrainStorming/claude-remote-control tag v2.41.2 503e38c)",
       "Bash(git -C /Users/stan/Dev/BrainStorming/claude-remote-control restore:*)",
-      "Bash(python3:*)"
+      "Bash(python3:*)",
+      "Bash(cd:*)",
+      "Bash(/Applications/Tailscale.app/Contents/MacOS/Tailscale status:*)",
+      "Bash(/Applications/Tailscale.app/Contents/MacOS/Tailscale funnel:*)",
+      "Bash(/Applications/Tailscale.app/Contents/MacOS/Tailscale serve:*)",
+      "Bash(npx:*)",
+      "mcp__Neon__list_projects",
+      "mcp__Neon__provision_neon_auth",
+      "mcp__Neon__get_connection_string",
+      "mcp__Neon__describe_project",
+      "mcp__Neon__describe_branch",
+      "mcp__Neon__run_sql",
+      "mcp__Neon__list_branch_computes",
+      "Bash(git remote:*)",
+      "Bash(git fetch:*)",
+      "Bash(railway whoami:*)",
+      "Bash(railway project:*)",
+      "Bash(railway:*)"
     ]
   },
   "remote": {
