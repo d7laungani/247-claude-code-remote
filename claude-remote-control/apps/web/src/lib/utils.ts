@@ -14,13 +14,27 @@ export function stripProtocol(url: string): string {
 }
 
 /**
+ * Check if a URL points to a private/local network address
+ * (localhost, 127.x, 10.x, 172.16-31.x, 192.168.x, 100.x Tailscale CGNAT)
+ */
+function isPrivateAddress(url: string): boolean {
+  return (
+    url.includes('localhost') ||
+    url.startsWith('127.') ||
+    url.startsWith('10.') ||
+    url.startsWith('172.') ||
+    url.startsWith('192.168.') ||
+    url.startsWith('100.')
+  );
+}
+
+/**
  * Build a WebSocket URL from an agent URL
  * Handles both URLs with and without protocol
  */
 export function buildWebSocketUrl(agentUrl: string, path: string): string {
   const cleanUrl = stripProtocol(agentUrl);
-  const isLocalhost = cleanUrl.includes('localhost') || cleanUrl.startsWith('127.0.0.1');
-  const wsProtocol = isLocalhost ? 'ws' : 'wss';
+  const wsProtocol = isPrivateAddress(cleanUrl) ? 'ws' : 'wss';
   return `${wsProtocol}://${cleanUrl}${path}`;
 }
 
@@ -30,7 +44,6 @@ export function buildWebSocketUrl(agentUrl: string, path: string): string {
  */
 export function buildApiUrl(agentUrl: string, path: string): string {
   const cleanUrl = stripProtocol(agentUrl);
-  const isLocalhost = cleanUrl.includes('localhost') || cleanUrl.startsWith('127.0.0.1');
-  const protocol = isLocalhost ? 'http' : 'https';
+  const protocol = isPrivateAddress(cleanUrl) ? 'http' : 'https';
   return `${protocol}://${cleanUrl}${path}`;
 }
