@@ -478,7 +478,7 @@ export function useTerminalConnection({
         }
       };
 
-      currentWs.onclose = () => {
+      currentWs.onclose = (event) => {
         if (cancelled) return;
         setConnected(false);
 
@@ -488,6 +488,15 @@ export function useTerminalConnection({
         if (intentionalCloseRef.current) {
           setConnectionState('disconnected');
           currentTerm.write('\r\n\x1b[38;5;245m-- Disconnected --\x1b[0m\r\n');
+          return;
+        }
+
+        // Non-recoverable close codes - don't attempt reconnection
+        const nonRecoverableCodes = [1008, 4001, 1011];
+        if (nonRecoverableCodes.includes(event.code)) {
+          setConnectionState('disconnected');
+          const reason = event.reason || 'Connection rejected';
+          currentTerm.write(`\r\n\x1b[31m* ${reason}\x1b[0m\r\n`);
           return;
         }
 
