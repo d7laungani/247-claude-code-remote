@@ -6,16 +6,18 @@ RUN npm install -g pnpm@9
 WORKDIR /app
 
 # Copy package files and config for dependency install
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json tsconfig.json ./
-COPY apps/web/package.json ./apps/web/
-COPY packages/shared/package.json ./packages/shared/
+# Supports both repo-root context (GitHub-connected deploys) and
+# claude-remote-control/ context (manual `railway up` from subdirectory)
+COPY claude-remote-control/package.json claude-remote-control/pnpm-lock.yaml claude-remote-control/pnpm-workspace.yaml claude-remote-control/turbo.json claude-remote-control/tsconfig.json ./
+COPY claude-remote-control/apps/web/package.json ./apps/web/
+COPY claude-remote-control/packages/shared/package.json ./packages/shared/
 
 # Install dependencies
 RUN pnpm install --frozen-lockfile
 
 # Copy source
-COPY packages/shared/ ./packages/shared/
-COPY apps/web/ ./apps/web/
+COPY claude-remote-control/packages/shared/ ./packages/shared/
+COPY claude-remote-control/apps/web/ ./apps/web/
 
 # Build shared package first, then web
 RUN pnpm build
