@@ -99,11 +99,14 @@ export function useHomeState() {
     const planningProjectIdParam = searchParams.get('planningProjectId');
 
     // Handle session creation from URL (e.g., from planning modal)
-    if (createParam && sessionParam && projectParam) {
+    if (createParam && sessionParam) {
+      // Derive project from session name if not explicitly provided
+      // Session names follow the pattern: project--slug
+      const project = projectParam || sessionParam.replace(/--.*$/, '') || '';
       setSelectedSession({
         machineId: machineParam,
         sessionName: sessionParam,
-        project: projectParam,
+        project,
         planningProjectId: planningProjectIdParam || undefined,
       });
       hasRestoredFromUrl.current = true;
@@ -192,6 +195,7 @@ export function useHomeState() {
       const params = new URLSearchParams(searchParams.toString());
       params.set('session', newSessionName);
       params.set('machine', machineId);
+      params.set('project', project);
       params.set('create', 'true');
       router.replace(`?${params.toString()}`, { scroll: false });
     },
@@ -201,7 +205,9 @@ export function useHomeState() {
   const handleSessionCreated = useCallback(
     (actualSessionName: string) => {
       if (selectedSession) {
-        setSelectedSession((prev) => (prev ? { ...prev, sessionName: actualSessionName } : null));
+        // Only update URL — don't call setSelectedSession to avoid changing
+        // the React key on SessionView, which would cause a re-mount and
+        // reconnect WITHOUT create=true (race condition: session not found)
         const params = new URLSearchParams(searchParams.toString());
         params.set('session', actualSessionName);
         params.delete('create');
