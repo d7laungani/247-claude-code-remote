@@ -23,14 +23,24 @@ export function detectUserShell(): 'bash' | 'zsh' {
   if (envShell.includes('zsh')) return 'zsh';
   if (envShell.includes('bash')) return 'bash';
 
-  // If SHELL is not set (e.g., running as a service), read from /etc/passwd
+  // If SHELL is not set (e.g., running as a service), try platform-specific detection
   try {
     const user = process.env.USER || process.env.LOGNAME || os.userInfo().username;
-    const result = execSync(`getent passwd ${user} | cut -d: -f7`, {
-      encoding: 'utf-8',
-      timeout: 1000,
-    }).trim();
+    let result = '';
+    if (process.platform === 'darwin') {
+      // macOS: dscl is the native directory service (getent doesn't exist)
+      result = execSync(`dscl . -read /Users/${user} UserShell | awk '{print $2}'`, {
+        encoding: 'utf-8',
+        timeout: 1000,
+      }).trim();
+    } else {
+      result = execSync(`getent passwd ${user} | cut -d: -f7`, {
+        encoding: 'utf-8',
+        timeout: 1000,
+      }).trim();
+    }
     if (result.includes('zsh')) return 'zsh';
+    if (result.includes('bash')) return 'bash';
   } catch {
     // Ignore errors, fall back to bash
   }

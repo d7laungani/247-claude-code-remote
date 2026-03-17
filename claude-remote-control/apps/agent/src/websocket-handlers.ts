@@ -222,8 +222,19 @@ export function handleTerminalConnection(ws: WebSocket, url: URL): void {
     });
 
     terminal.onExit(({ exitCode }: { exitCode: number }) => {
-      console.log(`Terminal exited with code ${exitCode}`);
-      if (ws.readyState === WebSocket.OPEN) ws.close(1000, 'Terminal closed');
+      console.log(`Terminal exited with code ${exitCode} for session '${sessionName}'`);
+      // Don't close WS immediately - the shell may have exited due to init script race.
+      // Give tmux a moment to settle, then check if the session is actually gone.
+      setTimeout(() => {
+        if (ws.readyState !== WebSocket.OPEN) return;
+        const sessionStillExists = tmuxSessionExists(sessionName);
+        if (sessionStillExists) {
+          console.log(`[Terminal] Shell exited but tmux session '${sessionName}' still alive, staying connected`);
+        } else {
+          console.log(`[Terminal] Shell exited and tmux session '${sessionName}' is gone, closing WS`);
+          ws.close(1000, 'Terminal closed');
+        }
+      }, 500);
     });
 
     // Process any messages that were buffered during async setup

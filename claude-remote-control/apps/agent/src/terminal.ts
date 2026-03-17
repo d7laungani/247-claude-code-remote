@@ -173,12 +173,15 @@ export function createTerminal(
       fireReadyCallbacks();
     }, 150);
 
-    // Cleanup init script after shell has started (give it time to read the file)
+    // Cleanup init script after shell has fully started.
+    // The init script contains sleep calls (animation ~3s) and is read line-by-line by bash.
+    // If deleted while bash is still reading (mid-sleep), bash gets a read error and exits,
+    // killing the tmux session. Use 30s to be safe on slower machines (e.g. Mac Mini).
     if (initScriptPath) {
       setTimeout(() => {
         cleanupInitScript(sessionName);
         console.log(`[Terminal] Init script cleaned up for '${sessionName}'`);
-      }, 5000);
+      }, 30000);
     }
   } else {
     // For existing sessions, just ensure mouse is enabled
