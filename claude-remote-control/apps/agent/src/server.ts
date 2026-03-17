@@ -5,7 +5,7 @@
 
 import express from 'express';
 import cors from 'cors';
-import { WebSocketServer } from 'ws';
+import { WebSocketServer, WebSocket } from 'ws';
 import { createServer as createHttpServer } from 'http';
 import { execSync } from 'child_process';
 import { initDatabase, closeDatabase } from './db/index.js';
@@ -95,9 +95,22 @@ export async function createServer() {
     socket.destroy();
   });
 
+  // Server-side WebSocket ping to keep connections alive through Tailscale proxy.
+  // Protocol-level pings (ws.ping()) are recognized by proxies as keepalive,
+  // unlike application-level JSON pings which look like regular data frames.
+  const WS_PING_INTERVAL = 20_000; // 20s - well under typical proxy idle timeouts (60-120s)
+  const pingInterval = setInterval(() => {
+    wss.clients.forEach((ws) => {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.ping();
+      }
+    });
+  }, WS_PING_INTERVAL);
+
   // Graceful shutdown
   const shutdown = () => {
     console.log('[Server] Shutting down...');
+    clearInterval(pingInterval);
     closeDatabase();
     server.close();
     process.exit(0);
