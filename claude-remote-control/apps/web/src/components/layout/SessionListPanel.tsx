@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Plus, Archive, Trash2, Clock, X } from 'lucide-react';
+import { Search, Plus, Archive, Trash2, Clock, X, PanelLeftClose } from 'lucide-react';
 import { format, isToday, isYesterday, startOfDay } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { variants, stagger, interactive } from '@/lib/animations';
@@ -22,6 +22,7 @@ export interface SessionListItem {
   model?: string;
   cost?: number;
   machineId?: string;
+  machineName?: string;
 }
 
 interface DateGroup {
@@ -39,6 +40,8 @@ interface SessionListPanelProps {
   onArchiveSession?: (session: SessionListItem) => void;
   /** Set of session IDs currently open in panes */
   openPaneSessionIds?: Set<string>;
+  /** Callback to collapse the session panel */
+  onCollapse?: () => void;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -177,6 +180,14 @@ function SessionCard({ session, selected, isOpenInPane, onClick, onKill, onArchi
 
           {/* Meta info */}
           <div className="flex items-center gap-2 text-xs text-white/40">
+            {session.machineName && (
+              <>
+                <span className="truncate rounded bg-white/8 px-1.5 py-0.5 text-[10px] font-medium text-white/50">
+                  {session.machineName}
+                </span>
+                <span className="text-white/20">•</span>
+              </>
+            )}
             <span className="truncate">{session.project}</span>
             <span className="text-white/20">•</span>
             <Clock className="h-3 w-3" />
@@ -288,6 +299,7 @@ export function SessionListPanel({
   onKillSession,
   onArchiveSession,
   openPaneSessionIds,
+  onCollapse,
 }: SessionListPanelProps) {
   const [search, setSearch] = useState('');
 
@@ -313,6 +325,19 @@ export function SessionListPanel({
             {sessions.length}
           </span>
         </div>
+        {onCollapse && (
+          <button
+            onClick={onCollapse}
+            className={cn(
+              'rounded-md p-2 transition-colors',
+              'text-white/40 hover:bg-white/5 hover:text-white/70'
+            )}
+            title="Collapse sessions"
+            aria-label="Collapse sessions"
+          >
+            <PanelLeftClose className="h-4 w-4" />
+          </button>
+        )}
       </div>
 
       {/* Search */}

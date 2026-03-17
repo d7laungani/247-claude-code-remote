@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { PanelLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { spring } from '@/lib/animations';
 import { Sidebar, type SidebarMachine, type SidebarProject } from './Sidebar';
@@ -97,9 +98,14 @@ export function AppShell({
   onToggleSplitView,
 }: AppShellProps) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sessionPanelCollapsed, setSessionPanelCollapsed] = useState(false);
 
   const handleSidebarToggle = useCallback(() => {
     setSidebarCollapsed((prev) => !prev);
+  }, []);
+
+  const handleSessionPanelToggle = useCallback(() => {
+    setSessionPanelCollapsed((prev) => !prev);
   }, []);
 
   // In fullscreen mode, hide the sidebar and session list
@@ -168,20 +174,42 @@ export function AppShell({
 
         <ResizeHandle />
 
-        {/* Panel 2: Session List - Fixed width */}
-        <div className="h-full flex-shrink-0" style={{ width: 320 }}>
-          <SessionListPanel
-            sessions={sessions}
-            selectedSessionId={selectedSessionId}
-            onSelectSession={onSelectSession}
-            onNewSession={onNewSession}
-            onKillSession={onKillSession}
-            onArchiveSession={onArchiveSession}
-            openPaneSessionIds={openPaneSessionIds}
-          />
-        </div>
+        {/* Panel 2: Session List - Collapsible */}
+        <motion.div
+          animate={{ width: sessionPanelCollapsed ? 0 : 320 }}
+          transition={spring.snappy}
+          className="h-full flex-shrink-0 overflow-hidden"
+        >
+          <div className="h-full" style={{ width: 320 }}>
+            <SessionListPanel
+              sessions={sessions}
+              selectedSessionId={selectedSessionId}
+              onSelectSession={onSelectSession}
+              onNewSession={onNewSession}
+              onKillSession={onKillSession}
+              onArchiveSession={onArchiveSession}
+              openPaneSessionIds={openPaneSessionIds}
+              onCollapse={handleSessionPanelToggle}
+            />
+          </div>
+        </motion.div>
 
-        <ResizeHandle />
+        {sessionPanelCollapsed ? (
+          <button
+            onClick={handleSessionPanelToggle}
+            className={cn(
+              'flex h-full w-6 flex-shrink-0 items-center justify-center',
+              'rounded-md transition-colors',
+              'text-white/40 hover:bg-white/5 hover:text-white/70'
+            )}
+            title="Show sessions"
+            aria-label="Show sessions"
+          >
+            <PanelLeft className="h-4 w-4" />
+          </button>
+        ) : (
+          <ResizeHandle />
+        )}
 
         {/* Panel 3: Main Content (Terminal) - Flex grow */}
         <main className="panel flex h-full min-w-0 flex-1 flex-col overflow-hidden">
